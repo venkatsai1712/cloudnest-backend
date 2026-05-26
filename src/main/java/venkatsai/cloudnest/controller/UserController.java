@@ -1,10 +1,14 @@
 package venkatsai.cloudnest.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.apache.catalina.User;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 import venkatsai.cloudnest.dto.*;
 import venkatsai.cloudnest.service.UserService;
@@ -12,13 +16,14 @@ import venkatsai.cloudnest.service.UserService;
 import java.time.LocalDateTime;
 
 @RestController
-@CrossOrigin("*")
 @RequestMapping("/api/auth")
 public class UserController {
     private final UserService userService;
+    private final SecurityContextRepository securityContextRepository;
     @Autowired
-    public UserController(UserService userService){
+    public UserController(UserService userService, SecurityContextRepository securityContextRepository){
         this.userService = userService;
+        this.securityContextRepository = securityContextRepository;
     }
 
     @PostMapping("/signup")
@@ -32,8 +37,13 @@ public class UserController {
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<APIResponseDTO<SignInResponse>> signIn(@RequestBody SignInRequest req, HttpServletRequest servletRequest){
-        servletRequest.getSession(true);
+    public ResponseEntity<APIResponseDTO<SignInResponse>> signIn(@RequestBody SignInRequest req, HttpServletRequest servletRequest, HttpServletResponse servletResponse){
+        Authentication authentication = userService.authenticate(req);
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        securityContextRepository.saveContext(context, servletRequest, servletResponse);
+
         return ResponseEntity.status(HttpStatus.OK).body(APIResponseDTO.<SignInResponse>builder()
                 .data(userService.signIn(req))
                 .message("Sign In Success")

@@ -1,6 +1,5 @@
 package venkatsai.cloudnest.service;
 
-import org.apache.catalina.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -42,14 +41,21 @@ public class UserService {
                 .email(req.getEmail()).name(req.getName()).build();
     }
 
-    public SignInResponse signIn(SignInRequest req) {
+    public Authentication authenticate(SignInRequest req) {
         UserEntity user = userRepository.findByEmail(req.getEmail());
         if(user == null){
             throw new UsernameNotFoundException("Invalid Credentials");
         }
         UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken
                 (req.getEmail(),req.getPassword());
-        Authentication auth = authenticationManager.authenticate(token);
+        return authenticationManager.authenticate(token);
+    }
+
+    public SignInResponse signIn(SignInRequest req) {
+        UserEntity user = userRepository.findByEmail(req.getEmail());
+        if(user == null){
+            throw new UsernameNotFoundException("Invalid Credentials");
+        }
         return SignInResponse.builder()
                 .name(user.getName())
                 .email(req.getEmail())
