@@ -1,13 +1,12 @@
 package venkatsai.cloudnest.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.catalina.User;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import venkatsai.cloudnest.dto.APIResponseDTO;
-import venkatsai.cloudnest.dto.SignInRequest;
-import venkatsai.cloudnest.dto.SignUpRequest;
-import venkatsai.cloudnest.dto.SignUpResponse;
+import venkatsai.cloudnest.dto.*;
 import venkatsai.cloudnest.service.UserService;
 
 import java.time.LocalDateTime;
@@ -17,6 +16,7 @@ import java.time.LocalDateTime;
 @RequestMapping("/api/auth")
 public class UserController {
     private final UserService userService;
+    @Autowired
     public UserController(UserService userService){
         this.userService = userService;
     }
@@ -31,9 +31,10 @@ public class UserController {
                 .build());
     }
 
-    @PostMapping("/sigin")
-    public ResponseEntity<APIResponseDTO<SignUpResponse>> signIn(@RequestBody SignInRequest req){
-        return ResponseEntity.status(HttpStatus.OK).body(APIResponseDTO.<SignUpResponse>builder()
+    @PostMapping("/signin")
+    public ResponseEntity<APIResponseDTO<SignInResponse>> signIn(@RequestBody SignInRequest req, HttpServletRequest servletRequest){
+        servletRequest.getSession(true);
+        return ResponseEntity.status(HttpStatus.OK).body(APIResponseDTO.<SignInResponse>builder()
                 .data(userService.signIn(req))
                 .message("Sign In Success")
                 .status(200)
