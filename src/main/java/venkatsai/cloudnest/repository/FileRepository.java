@@ -6,6 +6,6 @@ import venkatsai.cloudnest.entity.FileEntity;
 
 @Repository
 public interface FileRepository extends JpaRepository<FileEntity,Long> {
-    boolean existsByFileNameEqualsIgnoreCase(String fileName);
+    boolean existsByNameEqualsIgnoreCase(String name);
     FileEntity findById(String id);
 }

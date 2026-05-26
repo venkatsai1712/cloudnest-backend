@@ -3,10 +3,10 @@ package venkatsai.cloudnest.service;
 import io.minio.*;
 import io.minio.errors.MinioException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tomcat.util.http.fileupload.FileUploadException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import venkatsai.cloudnest.dto.APIResponseDTO;
 import venkatsai.cloudnest.entity.FileEntity;
 import venkatsai.cloudnest.repository.FileRepository;
 
@@ -29,7 +29,10 @@ public class FileService {
         this.minioClient = minioClient;
     }
 
-    public APIResponseDTO<FileEntity> uploadFiles(MultipartFile file) throws IOException, MinioException {
+    public FileEntity uploadFile(MultipartFile file) throws IOException, MinioException {
+        if(file.getSize() > 10240){
+            throw new FileUploadException("File Size is Greater than 10KB");
+        }
         if(isFileExists(file)){
             throw new FileAlreadyExistsException("File Already Exists");
         }
@@ -48,9 +51,7 @@ public class FileService {
         );
 
         fileRepository.save(fileEntity);
-        return APIResponseDTO.<FileEntity>builder()
-                .data(fileEntity)
-                .status(201).message("File Created Successfully").timeStamp(LocalDateTime.now()).build();
+        return fileEntity;
     }
 
 
@@ -58,8 +59,8 @@ public class FileService {
         String path = "uploads";
         return FileEntity.builder()
                 .id(fileId)
-                .fileName(file.getOriginalFilename())
-                .mime(file.getContentType())
+                .name(file.getOriginalFilename())
+                .contentType(file.getContentType())
                 .createdAt(LocalDateTime.now())
                 .storagePath(path)
                 .size(file.getSize()).build();
@@ -68,7 +69,7 @@ public class FileService {
 
     public boolean isFileExists(MultipartFile file){
         String name = file.getOriginalFilename();
-        return fileRepository.existsByFileNameEqualsIgnoreCase(name);
+        return fileRepository.existsByNameEqualsIgnoreCase(name);
     }
 
 
@@ -95,7 +96,7 @@ public class FileService {
     }
 
 
-    public APIResponseDTO<FileEntity> deleteFile(String id) throws IOException, MinioException {
+    public FileEntity deleteFile(String id) throws IOException, MinioException {
         FileEntity file = fileRepository.findById(id);
         if(file != null){
             String path = file.getStoragePath();
@@ -108,20 +109,16 @@ public class FileService {
             );
 
             fileRepository.delete(file);
-            return APIResponseDTO.<FileEntity>builder()
-                    .message(" File Deleted Successfully")
-                    .status(200)
-                    .timeStamp(LocalDateTime.now())
-                    .data(file).build();
+            return file;
         }
         throw new FileNotFoundException("File Not Found");
     }
 
 
-    public String getFileName(String id){
+    public String getName(String id){
         FileEntity file =  fileRepository.findById(id);
         if(file != null){
-            return file.getFileName();
+            return file.getName();
         }
         return "File";
     }

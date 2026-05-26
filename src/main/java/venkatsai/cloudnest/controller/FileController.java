@@ -29,7 +29,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 public class FileController {
-    private FileService fileService;
+    private final FileService fileService;
     @Autowired
     public FileController(FileService fileService){
         this.fileService = fileService;
@@ -37,25 +37,38 @@ public class FileController {
 
     @PostMapping("/file/upload")
     public ResponseEntity<APIResponseDTO<FileEntity>> uploadFile(@RequestParam MultipartFile file) throws IOException, MinioException {
-        return ResponseEntity.status(HttpStatus.CREATED).body(fileService.uploadFiles(file));
+        return ResponseEntity.status(HttpStatus.CREATED).body(APIResponseDTO.<FileEntity>builder()
+                .data(fileService.uploadFile(file))
+                .status(201).message("File Created Successfully").timeStamp(LocalDateTime.now()).build());
+
     }
+
+
     @GetMapping("/files")
     public ResponseEntity<APIResponseDTO<List<FileEntity>>> getFiles() throws FileNotFoundException {
         APIResponseDTO<List<FileEntity>> res = APIResponseDTO.<List<FileEntity>>builder().status(200).message("Files Returned Successfully").data(fileService.getFiles())
                 .timeStamp(LocalDateTime.now()).build();
         return ResponseEntity.status(HttpStatus.OK).body(res);
     }
+
+
     @GetMapping("/file/download/{id}")
     public ResponseEntity<InputStreamResource> downloadFile(@PathVariable String id) throws IOException, MinioException {
         InputStream inputStream = fileService.downloadFile(id);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\" "+ fileService.getFileName(id) + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\" "+ fileService.getName(id) + "\"")
                 .body(new InputStreamResource(inputStream));
     }
+
+
     @DeleteMapping("/file/{id}")
     public ResponseEntity<APIResponseDTO<FileEntity>> deleteFile(@PathVariable String id) throws IOException, MinioException {
-        return ResponseEntity.status(HttpStatus.OK).body(fileService.deleteFile(id));
+        return ResponseEntity.status(HttpStatus.OK).body(APIResponseDTO.<FileEntity>builder()
+                .message(" File Deleted Successfully")
+                .status(200)
+                .timeStamp(LocalDateTime.now())
+                .data(fileService.deleteFile(id)).build());
     }
 }
 
