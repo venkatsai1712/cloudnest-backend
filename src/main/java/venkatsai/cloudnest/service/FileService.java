@@ -1,125 +1,144 @@
 package venkatsai.cloudnest.service;
 
-import io.minio.*;
 import io.minio.errors.MinioException;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.tomcat.util.http.fileupload.FileUploadException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import venkatsai.cloudnest.dto.DownloadedFile;
+import venkatsai.cloudnest.dto.FileResponse;
 import venkatsai.cloudnest.entity.FileEntity;
+import venkatsai.cloudnest.entity.UserEntity;
+import venkatsai.cloudnest.exception.DuplicateFileException;
+import venkatsai.cloudnest.exception.FileStorageValidationException;
+import venkatsai.cloudnest.exception.ResourceNotFoundException;
+import venkatsai.cloudnest.mapper.FileMapper;
 import venkatsai.cloudnest.repository.FileRepository;
+import venkatsai.cloudnest.repository.UserRepository;
+import venkatsai.cloudnest.storage.FileStorage;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.FileAlreadyExistsException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
-@Slf4j
 @Service
 public class FileService {
+    private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+    private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+
     private final FileRepository fileRepository;
-    private final MinioClient minioClient;
-    @Autowired
-    public FileService(FileRepository fileRepository, MinioClient minioClient){
+    private final UserRepository userRepository;
+    private final FileStorage fileStorage;
+    private final FileMapper fileMapper;
+
+    public FileService(FileRepository fileRepository, UserRepository userRepository, FileStorage fileStorage, FileMapper fileMapper) {
         this.fileRepository = fileRepository;
-        this.minioClient = minioClient;
+        this.userRepository = userRepository;
+        this.fileStorage = fileStorage;
+        this.fileMapper = fileMapper;
     }
 
-    public FileEntity uploadFile(MultipartFile file) throws IOException, MinioException {
-        if(file.getSize() > 10240){
-            throw new FileUploadException("File Size is Greater than 10KB");
+    @Transactional
+    public FileResponse uploadFile(MultipartFile file, String ownerEmail) throws IOException, MinioException {
+        validateFile(file);
+        UserEntity owner = getOwner(ownerEmail);
+        String filename = getOriginalFilename(file);
+
+        if (fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCase(filename, ownerEmail)) {
+            throw new DuplicateFileException("File already exists");
         }
-        if(isFileExists(file)){
-            throw new FileAlreadyExistsException("File Already Exists");
+
+        String fileId = UUID.randomUUID().toString();
+        String contentType = resolveContentType(file);
+        FileEntity fileEntity = buildEntity(file, fileId, filename, contentType, owner);
+
+        fileStorage.store(fileId, file, contentType);
+        return fileMapper.toResponse(fileRepository.save(fileEntity));
+    }
+
+    @Transactional(readOnly = true)
+    public List<FileResponse> getFiles(String ownerEmail) {
+        getOwner(ownerEmail);
+        List<FileEntity> files = fileRepository.findAllByUser_EmailIgnoreCase(ownerEmail);
+        if (files.isEmpty()) {
+            throw new ResourceNotFoundException("Files not found");
         }
+        return files.stream()
+                .map(fileMapper::toResponse)
+                .toList();
+    }
 
-        String fileId = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        FileEntity fileEntity = buildEntity(file, fileId);
-
-
-        minioClient.putObject(
-                PutObjectArgs.builder()
-                        .stream(file.getInputStream(), file.getSize(), -1L)
-                        .bucket("uploads")
-                        .object(fileId)
-                        .contentType(file.getContentType())
-                        .build()
+    @Transactional(readOnly = true)
+    public DownloadedFile downloadFile(String id, String ownerEmail) throws IOException, MinioException {
+        FileEntity file = findOwnedFile(id, ownerEmail);
+        return new DownloadedFile(
+                file.getName(),
+                resolveStoredContentType(file),
+                fileStorage.load(file.getStoragePath(), file.getId())
         );
-
-        fileRepository.save(fileEntity);
-        return fileEntity;
     }
 
+    @Transactional
+    public FileResponse deleteFile(String id, String ownerEmail) throws IOException, MinioException {
+        FileEntity file = findOwnedFile(id, ownerEmail);
+        fileStorage.delete(file.getStoragePath(), file.getId());
+        fileRepository.delete(file);
+        return fileMapper.toResponse(file);
+    }
 
-    public FileEntity buildEntity(MultipartFile file, String fileId){
-        String path = "uploads";
+    FileEntity buildEntity(MultipartFile file, String fileId, String filename, String contentType, UserEntity owner) {
         return FileEntity.builder()
                 .id(fileId)
-                .name(file.getOriginalFilename())
-                .contentType(file.getContentType())
+                .name(filename)
+                .contentType(contentType)
                 .createdAt(LocalDateTime.now())
-                .storagePath(path)
-                .size(file.getSize()).build();
+                .storagePath(fileStorage.bucketName())
+                .size(file.getSize())
+                .user(owner)
+                .build();
     }
 
-
-    public boolean isFileExists(MultipartFile file){
-        String name = file.getOriginalFilename();
-        return fileRepository.existsByNameEqualsIgnoreCase(name);
+    private FileEntity findOwnedFile(String id, String ownerEmail) {
+        getOwner(ownerEmail);
+        return fileRepository.findByIdAndUser_EmailIgnoreCase(id, ownerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("File not found"));
     }
 
-
-    public List<FileEntity> getFiles() throws FileNotFoundException {
-        if(fileRepository.findAll().isEmpty()){
-            throw new FileNotFoundException("Files Not Found");
+    private UserEntity getOwner(String ownerEmail) {
+        if (ownerEmail == null || ownerEmail.isBlank()) {
+            throw new ResourceNotFoundException("User not found");
         }
-        return fileRepository.findAll();
+        return userRepository.findByEmail(ownerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
-
-    public InputStream downloadFile(String id) throws IOException, MinioException {
-        FileEntity file =  fileRepository.findById(id);
-        if(file != null){
-            String path = file.getStoragePath();
-            return minioClient.getObject(
-                    GetObjectArgs.builder()
-                            .bucket(path)
-                            .object(id)
-                            .build()
-            );
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new FileStorageValidationException("File is empty");
         }
-        throw new FileNotFoundException("File Not Found");
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new FileStorageValidationException("File size must not exceed 10MB");
+        }
+        getOriginalFilename(file);
     }
 
-
-    public FileEntity deleteFile(String id) throws IOException, MinioException {
-        FileEntity file = fileRepository.findById(id);
-        if(file != null){
-            String path = file.getStoragePath();
-
-            minioClient.removeObject(
-                    RemoveObjectArgs.builder()
-                            .bucket(path)
-                            .object(id)
-                            .build()
-            );
-
-            fileRepository.delete(file);
-            return file;
+    private String getOriginalFilename(MultipartFile file) {
+        String filename = Objects.requireNonNullElse(file.getOriginalFilename(), "").trim();
+        if (filename.isBlank()) {
+            throw new FileStorageValidationException("File name is required");
         }
-        throw new FileNotFoundException("File Not Found");
+        return filename;
     }
 
+    private String resolveContentType(MultipartFile file) {
+        String contentType = file.getContentType();
+        return contentType == null || contentType.isBlank() ? DEFAULT_CONTENT_TYPE : contentType;
+    }
 
-    public String getName(String id){
-        FileEntity file =  fileRepository.findById(id);
-        if(file != null){
-            return file.getName();
-        }
-        return "File";
+    private String resolveStoredContentType(FileEntity file) {
+        return file.getContentType() == null || file.getContentType().isBlank()
+                ? DEFAULT_CONTENT_TYPE
+                : file.getContentType();
     }
 }

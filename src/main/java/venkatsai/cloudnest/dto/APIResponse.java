@@ -5,14 +5,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.sql.Time;
 import java.time.LocalDateTime;
 
 @Builder
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class APIResponseDTO<T> {
+public class APIResponse<T> {
     private int status;
     private String message;
     private String error;

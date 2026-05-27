@@ -1,12 +1,12 @@
 package venkatsai.cloudnest.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import venkatsai.cloudnest.dto.SignInRequest;
 import venkatsai.cloudnest.dto.SignInResponse;
 import venkatsai.cloudnest.dto.SignUpRequest;
@@ -20,15 +20,19 @@ import java.util.UUID;
 public class UserService {
     private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
-
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
-    @Autowired
+
     public UserService(UserRepository userRepository, AuthenticationManager authenticationManager, BCryptPasswordEncoder bCryptPasswordEncoder){
         this.userRepository = userRepository;
         this.authenticationManager = authenticationManager;
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
     }
+    @Transactional
     public SignUpResponse signUp(SignUpRequest req){
+        if (userRepository.existsByEmailIgnoreCase(req.getEmail())) {
+            throw new IllegalArgumentException("Email is already registered");
+        }
+
         String id = String.valueOf(UUID.randomUUID());
         UserEntity user = UserEntity.builder()
                 .id(id)
@@ -42,20 +46,17 @@ public class UserService {
     }
 
     public Authentication authenticate(SignInRequest req) {
-        UserEntity user = userRepository.findByEmail(req.getEmail());
-        if(user == null){
-            throw new UsernameNotFoundException("Invalid Credentials");
-        }
+        userRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new UsernameNotFoundException("Invalid Credentials"));
         UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken
                 (req.getEmail(),req.getPassword());
         return authenticationManager.authenticate(token);
     }
 
+    @Transactional(readOnly = true)
     public SignInResponse signIn(SignInRequest req) {
-        UserEntity user = userRepository.findByEmail(req.getEmail());
-        if(user == null){
-            throw new UsernameNotFoundException("Invalid Credentials");
-        }
+        UserEntity user = userRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new UsernameNotFoundException("Invalid Credentials"));
         return SignInResponse.builder()
                 .name(user.getName())
                 .email(req.getEmail())
