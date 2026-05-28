@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import venkatsai.cloudnest.dto.APIResponse;
 import venkatsai.cloudnest.dto.DownloadedFile;
 import venkatsai.cloudnest.dto.FileResponse;
+import venkatsai.cloudnest.dto.URLFileUploadRequest;
 import venkatsai.cloudnest.service.FileService;
 
 import java.io.IOException;
@@ -53,6 +54,17 @@ public class FileController {
         return ResponseEntity.status(HttpStatus.OK).body(res);
     }
 
+    @PostMapping("/file/upload-url")
+    public ResponseEntity<String> getUploadPresignedURL(@RequestBody URLFileUploadRequest req, Authentication authentication) throws MinioException, IOException {
+        String url = fileService.getUploadPresignedURL(req.getName(), req.getContentType(), Long.parseLong(req.getSize()), authentication.getName());
+        return ResponseEntity.ok().body(url);
+    }
+
+    @GetMapping("/file/download-url/{id}")
+    public ResponseEntity<String> getDownloadPresignedURL(@PathVariable String id, Authentication authentication) throws MinioException, IOException {
+        String url = fileService.getDownloadPresignedURL(id, authentication.getName());
+        return ResponseEntity.ok().body(url);
+    }
 
     @GetMapping("/file/download/{id}")
     public ResponseEntity<InputStreamResource> downloadFile(@PathVariable String id,

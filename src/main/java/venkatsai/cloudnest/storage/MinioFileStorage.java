@@ -1,11 +1,6 @@
 package venkatsai.cloudnest.storage;
 
-import io.minio.BucketExistsArgs;
-import io.minio.GetObjectArgs;
-import io.minio.MakeBucketArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.RemoveObjectArgs;
+import io.minio.*;
 import io.minio.errors.MinioException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -13,6 +8,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class MinioFileStorage implements FileStorage {
@@ -62,10 +59,47 @@ public class MinioFileStorage implements FileStorage {
         );
     }
 
+    @Override
+    public String getDownloadPresignedURL(String bucketName, String objectKey, String fileName, String contentType) throws MinioException {
+        Map<String, String> reqParams = new HashMap<>();
+        reqParams.put(
+                "response-content-disposition",
+                "attachment; filename=\"" + fileName + "\""
+        );
+        reqParams.put(
+                "response-content-type",
+                contentType
+        );
+
+        return minioClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                        .method(Http.Method.GET)
+                        .expiry(3600)
+                        .bucket(bucketName)
+                        .object(objectKey)
+                        .extraQueryParams(reqParams)
+                        .build()
+        );
+    }
+
+    @Override
+    public String getUploadPresignedURL(String bucketName, String objectKey) throws MinioException {
+        return minioClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectKey)
+                        .method(Http.Method.PUT)
+                        .expiry(3600)
+                        .build()
+        );
+    }
+
     private void ensureBucketExists() throws IOException, MinioException {
         boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build());
         if (!exists) {
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
         }
     }
+
+
 }

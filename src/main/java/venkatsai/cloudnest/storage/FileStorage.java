@@ -14,4 +14,8 @@ public interface FileStorage {
     InputStream load(String bucketName, String objectKey) throws IOException, MinioException;
 
     void delete(String bucketName, String objectKey) throws IOException, MinioException;
+
+    String getUploadPresignedURL(String bucketName, String objectKey) throws IOException, MinioException;
+
+    String getDownloadPresignedURL(String bucketName, String objectKey, String fileName, String contentType) throws IOException, MinioException;
 }

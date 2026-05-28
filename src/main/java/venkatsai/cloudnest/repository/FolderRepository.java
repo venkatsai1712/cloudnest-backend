@@ -19,5 +19,7 @@ public interface FolderRepository extends JpaRepository<FolderEntity, String> {
 
     long countByParent_IdAndUser_EmailIgnoreCase(String parentId, String email);
 
+    long countByUser_EmailIgnoreCase(String email);
+
     Optional<FolderEntity> findByIdAndUser_EmailIgnoreCase(String id, String email);
 }

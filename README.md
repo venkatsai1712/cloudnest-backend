@@ -14,3 +14,4 @@ MinIO Console:
 ```text
 http://localhost:9001
 ```
+

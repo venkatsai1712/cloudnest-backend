@@ -1,6 +1,8 @@
 package venkatsai.cloudnest.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import venkatsai.cloudnest.entity.FileEntity;
 
@@ -22,6 +24,11 @@ public interface FileRepository extends JpaRepository<FileEntity, String> {
     List<FileEntity> findAllByUser_EmailIgnoreCaseAndFolder_Id(String email, String folderId);
 
     long countByFolder_IdAndUser_EmailIgnoreCase(String folderId, String email);
+
+    long countByUser_EmailIgnoreCase(String email);
+
+    @Query("select coalesce(sum(f.size), 0) from FileEntity f where lower(f.user.email) = lower(:email)")
+    long sumSizeByUserEmailIgnoreCase(@Param("email") String email);
 
     Optional<FileEntity> findByIdAndUser_EmailIgnoreCase(String id, String email);
 }

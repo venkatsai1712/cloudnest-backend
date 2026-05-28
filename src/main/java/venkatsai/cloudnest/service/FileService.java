@@ -1,6 +1,7 @@
 package venkatsai.cloudnest.service;
 
 import io.minio.errors.MinioException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -70,6 +71,19 @@ public class FileService {
         return fileMapper.toResponse(fileRepository.save(fileEntity));
     }
 
+    public String getDownloadPresignedURL(String id, String ownerEmail) throws MinioException, IOException {
+        FileEntity file = findOwnedFile(id, ownerEmail);
+        return fileStorage.getDownloadPresignedURL(file.getStoragePath(), id, file.getName(), file.getContentType());
+    }
+
+    public String getUploadPresignedURL(String fileName, String contentType, long fileSize, String ownerEmail) throws MinioException, IOException {
+        String fileId = UUID.randomUUID().toString();
+        UserEntity owner = getOwner(ownerEmail);
+        FileEntity fileEntity = buildEntity(fileId, fileName, contentType, fileSize, owner);
+        fileMapper.toResponse(fileRepository.save(fileEntity));
+        return fileStorage.getUploadPresignedURL(fileStorage.bucketName(), fileId);
+    }
+
     @Transactional(readOnly = true)
     public List<FileResponse> getFiles(String ownerEmail, String folderId) {
         getOwner(ownerEmail);
@@ -119,6 +133,18 @@ public class FileService {
                 .build();
     }
 
+    FileEntity buildEntity(String fileId, String filename, String contentType, long fileSize, UserEntity owner) {
+        return FileEntity.builder()
+                .id(fileId)
+                .name(filename)
+                .contentType(contentType)
+                .createdAt(LocalDateTime.now())
+                .storagePath(fileStorage.bucketName())
+                .size(fileSize)
+                .user(owner)
+                .build();
+    }
+
     private FileEntity findOwnedFile(String id, String ownerEmail) {
         getOwner(ownerEmail);
         return fileRepository.findByIdAndUser_EmailIgnoreCase(id, ownerEmail)
@@ -144,10 +170,12 @@ public class FileService {
     }
 
     private String getOriginalFilename(MultipartFile file) {
-        String filename = Objects.requireNonNullElse(file.getOriginalFilename(), "").trim();
-        if (filename.isBlank()) {
-            throw new FileStorageValidationException("File name is required");
+        String filename = file.getOriginalFilename();
+
+        if (filename == null || filename.isBlank()) {
+            throw new FileStorageValidationException("Filename is missing");
         }
+
         return filename;
     }
 
@@ -174,4 +202,6 @@ public class FileService {
                 ? fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolderIsNull(filename, ownerEmail)
                 : fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolder_Id(filename, ownerEmail, folder.getId());
     }
+
+
 }
