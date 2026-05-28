@@ -7,6 +7,7 @@ import org.springframework.web.multipart.MultipartFile;
 import venkatsai.cloudnest.dto.DownloadedFile;
 import venkatsai.cloudnest.dto.FileResponse;
 import venkatsai.cloudnest.entity.FileEntity;
+import venkatsai.cloudnest.entity.FolderEntity;
 import venkatsai.cloudnest.entity.UserEntity;
 import venkatsai.cloudnest.exception.DuplicateFileException;
 import venkatsai.cloudnest.exception.FileStorageValidationException;
@@ -31,36 +32,54 @@ public class FileService {
     private final UserRepository userRepository;
     private final FileStorage fileStorage;
     private final FileMapper fileMapper;
+    private final FolderService folderService;
 
-    public FileService(FileRepository fileRepository, UserRepository userRepository, FileStorage fileStorage, FileMapper fileMapper) {
+    public FileService(FileRepository fileRepository,
+                       UserRepository userRepository,
+                       FileStorage fileStorage,
+                       FileMapper fileMapper,
+                       FolderService folderService) {
         this.fileRepository = fileRepository;
         this.userRepository = userRepository;
         this.fileStorage = fileStorage;
         this.fileMapper = fileMapper;
+        this.folderService = folderService;
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FileResponse uploadFile(MultipartFile file, String ownerEmail) throws IOException, MinioException {
+        return uploadFile(file, ownerEmail, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public FileResponse uploadFile(MultipartFile file, String ownerEmail, String folderId) throws IOException, MinioException {
         validateFile(file);
         UserEntity owner = getOwner(ownerEmail);
         String filename = getOriginalFilename(file);
+        FolderEntity folder = resolveFolder(folderId, ownerEmail);
 
-        if (fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCase(filename, ownerEmail)) {
+        if (fileExists(filename, ownerEmail, folder)) {
             throw new DuplicateFileException("File already exists");
         }
 
         String fileId = UUID.randomUUID().toString();
         String contentType = resolveContentType(file);
-        FileEntity fileEntity = buildEntity(file, fileId, filename, contentType, owner);
+        FileEntity fileEntity = buildEntity(file, fileId, filename, contentType, owner, folder);
 
         fileStorage.store(fileId, file, contentType);
         return fileMapper.toResponse(fileRepository.save(fileEntity));
     }
 
     @Transactional(readOnly = true)
-    public List<FileResponse> getFiles(String ownerEmail) {
+    public List<FileResponse> getFiles(String ownerEmail, String folderId) {
         getOwner(ownerEmail);
-        List<FileEntity> files = fileRepository.findAllByUser_EmailIgnoreCase(ownerEmail);
+        List<FileEntity> files;
+        if (folderId == null || folderId.isBlank()) {
+            files = fileRepository.findAllByUser_EmailIgnoreCase(ownerEmail);
+        } else {
+            FolderEntity folder = folderService.findOwnedFolder(folderId, ownerEmail);
+            files = fileRepository.findAllByUser_EmailIgnoreCaseAndFolder_Id(ownerEmail, folder.getId());
+        }
         if (files.isEmpty()) {
             throw new ResourceNotFoundException("Files not found");
         }
@@ -79,7 +98,7 @@ public class FileService {
         );
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public FileResponse deleteFile(String id, String ownerEmail) throws IOException, MinioException {
         FileEntity file = findOwnedFile(id, ownerEmail);
         fileStorage.delete(file.getStoragePath(), file.getId());
@@ -87,7 +106,7 @@ public class FileService {
         return fileMapper.toResponse(file);
     }
 
-    FileEntity buildEntity(MultipartFile file, String fileId, String filename, String contentType, UserEntity owner) {
+    FileEntity buildEntity(MultipartFile file, String fileId, String filename, String contentType, UserEntity owner, FolderEntity folder) {
         return FileEntity.builder()
                 .id(fileId)
                 .name(filename)
@@ -96,6 +115,7 @@ public class FileService {
                 .storagePath(fileStorage.bucketName())
                 .size(file.getSize())
                 .user(owner)
+                .folder(folder)
                 .build();
     }
 
@@ -140,5 +160,18 @@ public class FileService {
         return file.getContentType() == null || file.getContentType().isBlank()
                 ? DEFAULT_CONTENT_TYPE
                 : file.getContentType();
+    }
+
+    private FolderEntity resolveFolder(String folderId, String ownerEmail) {
+        if (folderId == null || folderId.isBlank()) {
+            return null;
+        }
+        return folderService.findOwnedFolder(folderId, ownerEmail);
+    }
+
+    private boolean fileExists(String filename, String ownerEmail, FolderEntity folder) {
+        return folder == null
+                ? fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolderIsNull(filename, ownerEmail)
+                : fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolder_Id(filename, ownerEmail, folder.getId());
     }
 }

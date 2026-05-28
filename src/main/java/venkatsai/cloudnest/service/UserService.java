@@ -27,7 +27,7 @@ public class UserService {
         this.authenticationManager = authenticationManager;
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
     }
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public SignUpResponse signUp(SignUpRequest req){
         if (userRepository.existsByEmailIgnoreCase(req.getEmail())) {
             throw new IllegalArgumentException("Email is already registered");

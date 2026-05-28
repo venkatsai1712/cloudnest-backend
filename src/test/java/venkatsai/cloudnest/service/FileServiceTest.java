@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import venkatsai.cloudnest.dto.FileResponse;
 import venkatsai.cloudnest.entity.FileEntity;
+import venkatsai.cloudnest.entity.FolderEntity;
 import venkatsai.cloudnest.entity.UserEntity;
 import venkatsai.cloudnest.exception.DuplicateFileException;
 import venkatsai.cloudnest.exception.FileStorageValidationException;
@@ -26,6 +27,7 @@ public class FileServiceTest {
     private FileRepository fileRepository;
     private UserRepository userRepository;
     private FileMapper fileMapper;
+    private FolderService folderService;
     private UserEntity user;
 
     @BeforeEach
@@ -33,8 +35,9 @@ public class FileServiceTest {
         fileRepository = mock(FileRepository.class);
         userRepository = mock(UserRepository.class);
         fileStorage = mock(FileStorage.class);
+        folderService = mock(FolderService.class);
         fileMapper = new FileMapper();
-        fileService = new FileService(fileRepository, userRepository, fileStorage, fileMapper);
+        fileService = new FileService(fileRepository, userRepository, fileStorage, fileMapper, folderService);
         user = UserEntity.builder()
                 .id("user-1")
                 .name("Test User")
@@ -55,7 +58,7 @@ public class FileServiceTest {
 
     @Test
     public void checkDuplicateFile(){
-        when(fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCase("file123.txt", "test@example.com")).thenReturn(true);
+        when(fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolderIsNull("file123.txt", "test@example.com")).thenReturn(true);
         assertThrows(DuplicateFileException.class, ()->{
             MockMultipartFile file = new MockMultipartFile("file123","file123.txt","text/plain",new byte[10240]);
             fileService.uploadFile(file, "test@example.com");
@@ -69,6 +72,21 @@ public class FileServiceTest {
         FileResponse response = fileService.uploadFile(file, "test@example.com");
         assertEquals("file123.txt", response.getName());
         verify(fileRepository).save(any(FileEntity.class));
+        verify(fileStorage).store(anyString(), eq(file), eq("text/plain"));
+    }
+
+    @Test
+    public void checkUploadToFolderSuccess() throws MinioException, IOException {
+        FolderEntity folder = FolderEntity.builder().id("folder-1").name("Documents").user(user).build();
+        when(folderService.findOwnedFolder("folder-1", "test@example.com")).thenReturn(folder);
+        when(fileRepository.save(any(FileEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MockMultipartFile file = new MockMultipartFile("file123", "file123.txt", "text/plain", new byte[10240]);
+        FileResponse response = fileService.uploadFile(file, "test@example.com", "folder-1");
+
+        assertEquals("folder-1", response.getFolderId());
+        verify(fileRepository).existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolder_Id("file123.txt", "test@example.com", "folder-1");
+        verify(fileRepository).save(argThat(entity -> entity.getFolder().equals(folder)));
         verify(fileStorage).store(anyString(), eq(file), eq("text/plain"));
     }
 

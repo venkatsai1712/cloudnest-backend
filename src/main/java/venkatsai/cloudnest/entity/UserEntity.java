@@ -38,4 +38,7 @@ public class UserEntity {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<FileEntity> files;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<FolderEntity> folders;
 }

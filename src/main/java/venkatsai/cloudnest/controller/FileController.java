@@ -30,9 +30,10 @@ public class FileController {
 
     @PostMapping("/file/upload")
     public ResponseEntity<APIResponse<FileResponse>> uploadFile(@RequestParam("file") MultipartFile file,
+                                                                @RequestParam(required = false) String folderId,
                                                                 Authentication authentication) throws IOException, MinioException {
         return ResponseEntity.status(HttpStatus.CREATED).body(APIResponse.<FileResponse>builder()
-                .data(fileService.uploadFile(file, authentication.getName()))
+                .data(fileService.uploadFile(file, authentication.getName(), folderId))
                 .status(201)
                 .message("File Created Successfully")
                 .timeStamp(LocalDateTime.now())
@@ -41,11 +42,12 @@ public class FileController {
 
 
     @GetMapping("/files")
-    public ResponseEntity<APIResponse<List<FileResponse>>> getFiles(Authentication authentication) {
+    public ResponseEntity<APIResponse<List<FileResponse>>> getFiles(@RequestParam(required = false) String folderId,
+                                                                    Authentication authentication) {
         APIResponse<List<FileResponse>> res = APIResponse.<List<FileResponse>>builder()
                 .status(200)
                 .message("Files Returned Successfully")
-                .data(fileService.getFiles(authentication.getName()))
+                .data(fileService.getFiles(authentication.getName(), folderId))
                 .timeStamp(LocalDateTime.now())
                 .build();
         return ResponseEntity.status(HttpStatus.OK).body(res);

@@ -29,27 +29,22 @@ public class SecurityConfig {
 
     private final UserDetailsServiceImple userDetails;
     public SecurityConfig(UserDetailsServiceImple userDetails){
+
         this.userDetails = userDetails;
     }
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http){
         return http
-                .cors(Customizer.withDefaults())
-                .csrf(AbstractHttpConfigurer::disable)
-                .securityContext(context -> context.securityContextRepository(securityContextRepository()))
+                .securityContext(context ->
+                        context.securityContextRepository(securityContextRepository()))
                 .authorizeHttpRequests(req -> req
                                 .requestMatchers("/api/auth/*").permitAll()
                         .anyRequest().authenticated())
-                .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.getWriter().write("{\"status\":401,\"message\":\"Unauthorized\",\"error\":\"Authentication is required\"}");
-                }))
                 .userDetailsService(userDetails)
                 .build();
     }
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception{
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) {
         return configuration.getAuthenticationManager();
     }
     @Bean
@@ -61,19 +56,4 @@ public class SecurityConfig {
         return new HttpSessionSecurityContextRepository();
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origins}") String allowedOrigins) {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isEmpty())
-                .toList());
-        configuration.setAllowedMethods(List.of("GET", "POST", "DELETE", "PUT"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        configuration.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
 }
