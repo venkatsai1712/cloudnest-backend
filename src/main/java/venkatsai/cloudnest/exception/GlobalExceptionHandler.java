@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
-public class GlobalException {
+public class GlobalExceptionHandler {
     @ExceptionHandler({UsernameNotFoundException.class, BadCredentialsException.class})
     public ResponseEntity<APIResponse<Void>> unauthorized(RuntimeException ex) {
         return error(HttpStatus.UNAUTHORIZED, "Unauthorized", "Invalid Credentials");

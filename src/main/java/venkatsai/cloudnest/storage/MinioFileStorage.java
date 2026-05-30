@@ -2,15 +2,16 @@ package venkatsai.cloudnest.storage;
 
 import io.minio.*;
 import io.minio.errors.MinioException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
+@Slf4j
 @Component
 public class MinioFileStorage implements FileStorage {
     private final MinioClient minioClient;
@@ -92,6 +93,65 @@ public class MinioFileStorage implements FileStorage {
                         .expiry(3600)
                         .build()
         );
+    }
+
+    public String getUploadChunkPresignedURL(String bucketName, String objectKey) throws MinioException {
+        return minioClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectKey)
+                        .method(Http.Method.PUT)
+                        .expiry(3600)
+                        .build()
+        );
+    }
+
+    public String chunksUploadComplete(String uploadId, List<Integer> chunks) throws MinioException {
+        List<SourceObject> sources = new ArrayList<>();
+        for(int chunk : chunks){
+            sources.add(
+                    SourceObject.builder()
+                            .bucket(bucketName())
+                            .object(uploadId+chunk)
+                            .build()
+            );
+        }
+
+        for (Integer chunk : chunks) {
+            String chunkObject = uploadId + chunk;
+
+            minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(bucketName())
+                            .object(chunkObject)
+                            .build()
+            );
+
+            log.info("Found chunk {}", chunkObject);
+        }
+
+        String objectKey = uploadId.substring(uploadId.lastIndexOf("/") + 1);
+        minioClient.composeObject(
+                ComposeObjectArgs.builder()
+                        .bucket(bucketName())
+                        .object(objectKey)
+                        .sources(sources)
+                        .build()
+        );
+        for(int chunk : chunks){
+            try {
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(bucketName())
+                                .object(uploadId+chunk)
+                                .build()
+                );
+            } catch (Exception e) {
+                log.warn("Failed to delete chunk {}", uploadId + chunk);
+            }
+        }
+
+        return objectKey;
     }
 
     private void ensureBucketExists() throws IOException, MinioException {

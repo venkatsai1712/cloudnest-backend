@@ -10,10 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import venkatsai.cloudnest.dto.APIResponse;
-import venkatsai.cloudnest.dto.DownloadedFile;
-import venkatsai.cloudnest.dto.FileResponse;
-import venkatsai.cloudnest.dto.URLFileUploadRequest;
+import venkatsai.cloudnest.dto.*;
 import venkatsai.cloudnest.service.FileService;
 
 import java.io.IOException;
@@ -55,15 +52,25 @@ public class FileController {
     }
 
     @PostMapping("/file/upload-url")
-    public ResponseEntity<String> getUploadPresignedURL(@RequestBody URLFileUploadRequest req, Authentication authentication) throws MinioException, IOException {
+    public ResponseEntity<APIResponse<String>> getUploadPresignedURL(@RequestBody URLFileUploadRequest req, Authentication authentication) throws MinioException, IOException {
         String url = fileService.getUploadPresignedURL(req.getName(), req.getContentType(), Long.parseLong(req.getSize()), authentication.getName());
-        return ResponseEntity.ok().body(url);
+        return ResponseEntity.ok(APIResponse.<String>builder()
+                .status(200)
+                .message("Upload URL Generated")
+                .data(url)
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @GetMapping("/file/download-url/{id}")
-    public ResponseEntity<String> getDownloadPresignedURL(@PathVariable String id, Authentication authentication) throws MinioException, IOException {
+    public ResponseEntity<APIResponse<String>> getDownloadPresignedURL(@PathVariable String id, Authentication authentication) throws MinioException, IOException {
         String url = fileService.getDownloadPresignedURL(id, authentication.getName());
-        return ResponseEntity.ok().body(url);
+        return ResponseEntity.ok(APIResponse.<String>builder()
+                .status(200)
+                .message("Download URL Generated")
+                .data(url)
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @GetMapping("/file/download/{id}")
@@ -88,6 +95,38 @@ public class FileController {
                 .status(200)
                 .timeStamp(LocalDateTime.now())
                 .data(fileService.deleteFile(id, authentication.getName()))
+                .build());
+    }
+
+
+    @PostMapping("/file/upload/chunks-initiate")
+    public ResponseEntity<APIResponse<String>> uploadChunksInitiate(@RequestBody URLFileUploadRequest metadata, Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.OK).body(APIResponse.<String>builder()
+                .message("Upload Id Returned Successfully")
+                .status(200)
+                .timeStamp(LocalDateTime.now())
+                .data(fileService.uploadChunksInitiate(metadata, authentication.getName()))
+                .build());
+    }
+
+    @PostMapping("/file/upload/chunks-url")
+    public ResponseEntity<APIResponse<String>> getUploadChunkPresignedURL(@RequestBody URLFileChunkUploadRequest req, Authentication authentication) throws MinioException, IOException {
+        String url = fileService.getUploadChunkPresignedURL(req.getUploadId(), req.getPartNumber(), req.getChunkSize(), authentication.getName());
+        return ResponseEntity.ok(APIResponse.<String>builder()
+                .status(200)
+                .message("Upload URL Generated")
+                .data(url)
+                .timeStamp(LocalDateTime.now())
+                .build());
+    }
+
+    @PostMapping("/file/upload/chunks-complete")
+    public ResponseEntity<APIResponse<String>> chunksUploadComplete(@RequestBody ChunksUploadedRequest req, Authentication authentication) throws MinioException {
+         return ResponseEntity.ok(APIResponse.<String>builder()
+                .status(200)
+                .message("Upload Completed")
+                .data(fileService.chunksUploadComplete(req.getUploadId(),req.getPartNumbers(),authentication.getName()))
+                .timeStamp(LocalDateTime.now())
                 .build());
     }
 }

@@ -36,6 +36,10 @@ public class FileEntity {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private FileStatus status;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private UserEntity user;
@@ -44,3 +48,4 @@ public class FileEntity {
     @JoinColumn(name = "folder_id")
     private FolderEntity folder;
 }
+

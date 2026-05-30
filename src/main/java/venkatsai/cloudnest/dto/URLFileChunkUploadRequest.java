@@ -5,13 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Builder
+ @Builder
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class URLFileUploadRequest {
-    private String name;
-    private String size;
-    private String contentType;
-    private String folderId;
+public class URLFileChunkUploadRequest {
+    private String uploadId;
+    private long partNumber;
+    private long chunkSize;
 }
+
+

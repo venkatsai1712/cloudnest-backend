@@ -5,7 +5,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import venkatsai.cloudnest.dto.FileResponse;
+import venkatsai.cloudnest.dto.URLFileUploadRequest;
 import venkatsai.cloudnest.entity.FileEntity;
+import venkatsai.cloudnest.entity.FileStatus;
 import venkatsai.cloudnest.entity.FolderEntity;
 import venkatsai.cloudnest.entity.UserEntity;
 import venkatsai.cloudnest.exception.DuplicateFileException;
@@ -16,6 +18,8 @@ import venkatsai.cloudnest.repository.UserRepository;
 import venkatsai.cloudnest.storage.FileStorage;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -71,6 +75,7 @@ public class FileServiceTest {
         MockMultipartFile file = new MockMultipartFile("file123","file123.txt","text/plain",new byte[10240]);
         FileResponse response = fileService.uploadFile(file, "test@example.com");
         assertEquals("file123.txt", response.getName());
+        assertEquals(FileStatus.ACTIVE, response.getStatus());
         verify(fileRepository).save(any(FileEntity.class));
         verify(fileStorage).store(anyString(), eq(file), eq("text/plain"));
     }
@@ -85,6 +90,7 @@ public class FileServiceTest {
         FileResponse response = fileService.uploadFile(file, "test@example.com", "folder-1");
 
         assertEquals("folder-1", response.getFolderId());
+        assertEquals(FileStatus.ACTIVE, response.getStatus());
         verify(fileRepository).existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolder_Id("file123.txt", "test@example.com", "folder-1");
         verify(fileRepository).save(argThat(entity -> entity.getFolder().equals(folder)));
         verify(fileStorage).store(anyString(), eq(file), eq("text/plain"));
@@ -97,5 +103,53 @@ public class FileServiceTest {
         assertEquals("file123",fileService.deleteFile("file123", "test@example.com").getName());
         verify(fileStorage).delete("uploads", "file123");
         verify(fileRepository).delete(any(FileEntity.class));
+    }
+
+    @Test
+    public void checkPresignedUploadStatus() throws MinioException, IOException {
+        when(fileRepository.save(any(FileEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        fileService.getUploadPresignedURL("file.txt", "text/plain", 1024, "test@example.com");
+        verify(fileRepository).save(argThat(entity -> entity.getStatus() == FileStatus.PENDING));
+    }
+
+    @Test
+    public void testUploadChunksInitiate() {
+        when(fileRepository.save(any(FileEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        URLFileUploadRequest metadata = URLFileUploadRequest.builder()
+                .name("chunked.zip")
+                .contentType("application/zip")
+                .size("102400")
+                .build();
+
+        String uploadId = fileService.uploadChunksInitiate(metadata, "test@example.com");
+
+        assertTrue(uploadId.startsWith("temp/test@example.com/"));
+        verify(fileRepository).save(argThat(entity ->
+            entity.getName().equals("chunked.zip") &&
+            entity.getStatus() == FileStatus.PENDING
+        ));
+    }
+
+    @Test
+    public void testChunksUploadComplete() throws MinioException {
+        String fileId = "uuid-123";
+        String uploadId = "temp/test@example.com/" + fileId;
+        List<Integer> chunks = Arrays.asList(1, 2, 3);
+
+        FileEntity pendingFile = FileEntity.builder()
+                .id(fileId)
+                .status(FileStatus.PENDING)
+                .build();
+
+        when(fileRepository.findById(fileId)).thenReturn(Optional.of(pendingFile));
+        when(fileStorage.chunksUploadComplete(eq(uploadId), eq(chunks))).thenReturn(fileId);
+        when(fileRepository.save(any(FileEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        String result = fileService.chunksUploadComplete(uploadId, chunks, "chunked.zip");
+
+        assertEquals(fileId, result);
+        assertEquals(FileStatus.ACTIVE, pendingFile.getStatus());
+        verify(fileStorage).chunksUploadComplete(uploadId, chunks);
+        verify(fileRepository).save(pendingFile);
     }
 }

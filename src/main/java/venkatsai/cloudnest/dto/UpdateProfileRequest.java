@@ -1,17 +1,16 @@
 package venkatsai.cloudnest.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Builder
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class URLFileUploadRequest {
+public class UpdateProfileRequest {
     private String name;
-    private String size;
-    private String contentType;
-    private String folderId;
+    private String password;
 }

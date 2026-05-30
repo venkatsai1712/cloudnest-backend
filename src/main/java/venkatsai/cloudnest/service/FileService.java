@@ -1,13 +1,15 @@
 package venkatsai.cloudnest.service;
 
 import io.minio.errors.MinioException;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import venkatsai.cloudnest.dto.DownloadedFile;
 import venkatsai.cloudnest.dto.FileResponse;
+import venkatsai.cloudnest.dto.URLFileUploadRequest;
 import venkatsai.cloudnest.entity.FileEntity;
+import venkatsai.cloudnest.entity.FileStatus;
 import venkatsai.cloudnest.entity.FolderEntity;
 import venkatsai.cloudnest.entity.UserEntity;
 import venkatsai.cloudnest.exception.DuplicateFileException;
@@ -20,10 +22,9 @@ import venkatsai.cloudnest.storage.FileStorage;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
+@Slf4j
 @Service
 public class FileService {
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -79,9 +80,38 @@ public class FileService {
     public String getUploadPresignedURL(String fileName, String contentType, long fileSize, String ownerEmail) throws MinioException, IOException {
         String fileId = UUID.randomUUID().toString();
         UserEntity owner = getOwner(ownerEmail);
-        FileEntity fileEntity = buildEntity(fileId, fileName, contentType, fileSize, owner);
-        fileMapper.toResponse(fileRepository.save(fileEntity));
+        FileEntity fileEntity = buildEntity(fileId, fileName, contentType, fileSize, owner, FileStatus.PENDING);
+        fileRepository.save(fileEntity);
         return fileStorage.getUploadPresignedURL(fileStorage.bucketName(), fileId);
+    }
+
+    public String getUploadChunkPresignedURL(String uploadId, long partNumber, long chunkSize, String ownerEmail) throws MinioException, IOException {
+        return fileStorage.getUploadChunkPresignedURL(fileStorage.bucketName(), uploadId+partNumber);
+    }
+
+    public String uploadChunksInitiate(URLFileUploadRequest metadata, String ownerEmail) {
+        String uniqueId = UUID.randomUUID().toString();
+        UserEntity owner = getOwner(ownerEmail);
+        FolderEntity folder = resolveFolder(metadata.getFolderId(), ownerEmail);
+
+        FileEntity fileEntity = buildEntity(uniqueId, metadata.getName(),
+                metadata.getContentType(), Long.parseLong(metadata.getSize()), owner, FileStatus.PENDING);
+        fileEntity.setFolder(folder);
+        fileRepository.save(fileEntity);
+        return "temp/" + ownerEmail + "/" + uniqueId;
+    }
+
+    public String chunksUploadComplete(String uploadId, List<Integer> chunks, String name) throws MinioException {
+        String fileId = uploadId.substring(uploadId.lastIndexOf("/") + 1);
+        FileEntity fileEntity = fileRepository.findById(fileId)
+                .orElseThrow(() -> new ResourceNotFoundException("File not found: " + fileId));
+
+        String resultId = fileStorage.chunksUploadComplete(uploadId, chunks);
+        fileEntity.setStatus(FileStatus.ACTIVE);
+        fileRepository.save(fileEntity);
+        log.info("uploadId = {}", uploadId);
+        log.info("resultId = {}", resultId);
+        return resultId;
     }
 
     @Transactional(readOnly = true)
@@ -128,6 +158,7 @@ public class FileService {
                 .createdAt(LocalDateTime.now())
                 .storagePath(fileStorage.bucketName())
                 .size(file.getSize())
+                .status(FileStatus.ACTIVE)
                 .user(owner)
                 .folder(folder)
                 .build();
@@ -142,6 +173,20 @@ public class FileService {
                 .storagePath(fileStorage.bucketName())
                 .size(fileSize)
                 .user(owner)
+                .status(FileStatus.ACTIVE)
+                .build();
+    }
+
+    FileEntity buildEntity(String fileId, String filename, String contentType, long fileSize, UserEntity owner, FileStatus status) {
+        return FileEntity.builder()
+                .id(fileId)
+                .name(filename)
+                .contentType(contentType)
+                .createdAt(LocalDateTime.now())
+                .storagePath(fileStorage.bucketName())
+                .size(fileSize)
+                .user(owner)
+                .status(status)
                 .build();
     }
 
@@ -202,6 +247,4 @@ public class FileService {
                 ? fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolderIsNull(filename, ownerEmail)
                 : fileRepository.existsByNameEqualsIgnoreCaseAndUser_EmailIgnoreCaseAndFolder_Id(filename, ownerEmail, folder.getId());
     }
-
-
 }

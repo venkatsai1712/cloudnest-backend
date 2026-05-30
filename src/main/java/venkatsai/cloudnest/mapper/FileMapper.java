@@ -14,6 +14,8 @@ public class FileMapper {
                 .contentType(file.getContentType())
                 .size(file.getSize())
                 .createdAt(file.getCreatedAt())
+                .status(file.getStatus())
                 .build();
     }
 }
+
