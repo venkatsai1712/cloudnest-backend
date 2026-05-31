@@ -1,18 +1,18 @@
-package venkatsai.cloudnest.dto;
+package venkatsai.cloudnest.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
- @Builder
+import java.util.List;
+import java.util.Map;
+
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class URLFileChunkUploadRequest {
+public class ChunksUploadedRequest {
     private String uploadId;
-    private long partNumber;
-    private long chunkSize;
+    private List<Integer> partNumbers;
 }
-
-

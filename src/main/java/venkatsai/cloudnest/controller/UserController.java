@@ -11,7 +11,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.web.bind.annotation.*;
-import venkatsai.cloudnest.dto.*;
+import venkatsai.cloudnest.dto.request.*;
+import venkatsai.cloudnest.dto.response.*;
 import venkatsai.cloudnest.service.UserService;
 
 import java.time.LocalDateTime;

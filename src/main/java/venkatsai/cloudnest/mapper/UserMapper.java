@@ -1,7 +1,7 @@
 package venkatsai.cloudnest.mapper;
 
 import org.springframework.stereotype.Component;
-import venkatsai.cloudnest.dto.UserProfileResponse;
+import venkatsai.cloudnest.dto.response.UserProfileResponse;
 import venkatsai.cloudnest.entity.UserEntity;
 
 @Component

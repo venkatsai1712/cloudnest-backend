@@ -1,4 +1,5 @@
-package venkatsai.cloudnest.storage;
+package venkatsai.cloudnest.storage.minio;
+import venkatsai.cloudnest.storage.FileStorage;
 
 import io.minio.*;
 import io.minio.errors.MinioException;

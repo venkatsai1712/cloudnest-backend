@@ -10,7 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import venkatsai.cloudnest.dto.*;
+import venkatsai.cloudnest.dto.request.*;
+import venkatsai.cloudnest.dto.response.*;
 import venkatsai.cloudnest.service.FileService;
 
 import java.io.IOException;

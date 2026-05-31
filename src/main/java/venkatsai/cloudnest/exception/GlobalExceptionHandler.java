@@ -10,7 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MultipartException;
-import venkatsai.cloudnest.dto.APIResponse;
+import venkatsai.cloudnest.dto.response.APIResponse;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -55,6 +55,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({MinioException.class, IOException.class})
     public ResponseEntity<APIResponse<Void>> storageFailure(Exception ex) {
         return error(HttpStatus.SERVICE_UNAVAILABLE, "Storage service unavailable", ex.getMessage());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<APIResponse<Void>> handleGenericException(Exception ex) {
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", ex.getMessage());
     }
 
     private ResponseEntity<APIResponse<Void>> error(HttpStatus status, String message, String error) {

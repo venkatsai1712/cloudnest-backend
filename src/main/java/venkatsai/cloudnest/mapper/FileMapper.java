@@ -1,7 +1,7 @@
 package venkatsai.cloudnest.mapper;
 
 import org.springframework.stereotype.Component;
-import venkatsai.cloudnest.dto.FileResponse;
+import venkatsai.cloudnest.dto.response.FileResponse;
 import venkatsai.cloudnest.entity.FileEntity;
 
 @Component

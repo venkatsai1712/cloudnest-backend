@@ -10,11 +10,11 @@ import venkatsai.cloudnest.entity.UserEntity;
 import venkatsai.cloudnest.repository.UserRepository;
 
 @Service
-public class UserDetailsServiceImple implements UserDetailsService {
+public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
 
-    public UserDetailsServiceImple(UserRepository userRepository){
+    public UserDetailsServiceImpl(UserRepository userRepository){
         this.userRepository = userRepository;
     }
 

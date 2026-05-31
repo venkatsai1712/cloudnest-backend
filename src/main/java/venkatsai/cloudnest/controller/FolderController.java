@@ -5,10 +5,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import venkatsai.cloudnest.dto.APIResponse;
-import venkatsai.cloudnest.dto.FolderContentsResponse;
-import venkatsai.cloudnest.dto.FolderCreateRequest;
-import venkatsai.cloudnest.dto.FolderResponse;
+import venkatsai.cloudnest.dto.response.APIResponse;
+import venkatsai.cloudnest.dto.response.FolderContentsResponse;
+import venkatsai.cloudnest.dto.request.FolderCreateRequest;
+import venkatsai.cloudnest.dto.response.FolderResponse;
 import venkatsai.cloudnest.service.FolderService;
 
 import java.time.LocalDateTime;

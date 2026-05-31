@@ -1,4 +1,4 @@
-package venkatsai.cloudnest.dto;
+package venkatsai.cloudnest.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,8 +9,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SignInResponse {
+public class URLFileUploadRequest {
     private String name;
-    private String email;
+    private String size;
+    private String contentType;
+    private String folderId;
 }
-

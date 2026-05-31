@@ -1,5 +1,6 @@
 package venkatsai.cloudnest.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
@@ -44,10 +45,14 @@ public class UserEntity {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<SharedFileEntity> sharedFiles;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<FileEntity> files;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<FolderEntity> folders;
+
 
     @PrePersist
     void onCreate() {

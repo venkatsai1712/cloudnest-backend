@@ -1,4 +1,4 @@
-package venkatsai.cloudnest.dto;
+package venkatsai.cloudnest.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

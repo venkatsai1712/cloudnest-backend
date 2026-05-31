@@ -1,4 +1,4 @@
-package venkatsai.cloudnest.config;
+package venkatsai.cloudnest.security;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +18,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import venkatsai.cloudnest.service.UserDetailsServiceImple;
+import venkatsai.cloudnest.service.UserDetailsServiceImpl;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -29,10 +29,10 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final UserDetailsServiceImple userDetails;
+    private final UserDetailsServiceImpl userDetails;
     private final List<String> allowedOrigins;
 
-    public SecurityConfig(UserDetailsServiceImple userDetails,
+    public SecurityConfig(UserDetailsServiceImpl userDetails,
                           @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173}") List<String> allowedOrigins) {
 
         this.userDetails = userDetails;

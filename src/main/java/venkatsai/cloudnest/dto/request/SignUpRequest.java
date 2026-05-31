@@ -1,4 +1,4 @@
-package venkatsai.cloudnest.dto;
+package venkatsai.cloudnest.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

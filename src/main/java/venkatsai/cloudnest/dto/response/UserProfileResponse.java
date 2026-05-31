@@ -1,17 +1,18 @@
-package venkatsai.cloudnest.dto;
+package venkatsai.cloudnest.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Builder
+import java.time.LocalDateTime;
+
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class URLFileUploadRequest {
+public class UserProfileResponse {
     private String name;
-    private String size;
-    private String contentType;
-    private String folderId;
+    private String email;
+    private LocalDateTime createdAt;
 }

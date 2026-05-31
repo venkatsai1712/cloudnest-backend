@@ -1,24 +1,20 @@
 package venkatsai.cloudnest.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Getter
 @Setter
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
+@SuperBuilder
 @Table(name = "files")
-public class FileEntity {
+public class FileEntity extends BaseEntity {
     @Id
     @EqualsAndHashCode.Include
     private String id;
@@ -33,8 +29,8 @@ public class FileEntity {
 
     private long size;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
+    @OneToMany(mappedBy = "file", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private List<SharedFileEntity> sharedFiles;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -48,4 +44,3 @@ public class FileEntity {
     @JoinColumn(name = "folder_id")
     private FolderEntity folder;
 }
-
